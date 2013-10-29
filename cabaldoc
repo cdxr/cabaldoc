@@ -1,0 +1,117 @@
+#!/usr/bin/env sh
+#
+# NAME
+#    cabaldoc - Open the locally-installed documentation for a cabal package.
+# 
+# SYNOPSIS
+#    cabaldoc                 open installed documentation for local .cabal file
+#    cabaldoc <package>       open installed documentation for <package>
+#    cabaldoc --local         open documentation found in dist/doc/html
+#
+# DESCRIPTION
+#    cabaldoc is a simple shell script for opening cabal package documentation.
+#    It uses cabal-install to find the documentation location.
+#    It opens the html files with the program xdg-open, available at
+#    freedesktop.org. One way to configure xdg-open is to set the $BROWSER
+#    environment variable.
+#
+# EXAMPLES
+#    cabaldoc base
+#    cabaldoc containers
+# 
+# COPYRIGHT AND LICENSE
+#    Copyright (c) 2013 Craig Roche
+#
+#    All rights reserved.
+#    
+#    Redistribution and use in source and binary forms, with or without
+#    modification, are permitted provided that the following conditions are met:
+#    
+#        * Redistributions of source code must retain the above copyright
+#          notice, this list of conditions and the following disclaimer.
+#    
+#        * Redistributions in binary form must reproduce the above
+#          copyright notice, this list of conditions and the following
+#          disclaimer in the documentation and/or other materials provided
+#          with the distribution.
+#    
+#        * Neither the name of Craig Roche nor the names of other
+#          contributors may be used to endorse or promote products derived
+#          from this software without specific prior written permission.
+#    
+#    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+#    "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+#    LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+#    A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+#    OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+#    SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+#    LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+#    DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+#    THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+#    (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+#    OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+
+usage()
+{
+    # Print this script until the first empty line
+    local line
+    while IFS= read line
+    do
+        if [ -z "$line" ]
+        then
+            exit "${1:-0}"
+        elif [ "${line:0:2}" == '#!' ]
+        then
+            # Shebang line
+            continue
+        fi
+        echo "${line:2}" # Remove comment characters
+    done < "$0"
+}
+
+
+open_package()
+{
+    cabal info "$1" >/dev/null || exit 1;
+
+    haddock_directory=$(cabal info "$1" | awk '/Documentation:/ { printf $2 }')
+
+    # exit if there is no directory. cabal has already printed an error message.
+    [[ -z $haddock_directory ]] && (
+        echo "No documentation installed."
+        exit 1
+    )
+
+    html="$haddock_directory/index.html"
+
+    # attempt to open the file in the browser
+    xdg-open "$html"
+}
+
+
+case "$1" in
+    -h|--help)
+        usage
+        exit 0
+        ;;
+    -l|--local)
+        html="dist/doc/html/*/index.html"
+        [[ -z $html ]] && (
+            echo "No documentation found in dist/doc/html/"
+            exit 1
+        )
+        ;;
+    "")
+        cabalfile=$(ls ./*.cabal)
+        [[ -z cabalfile ]] && (
+            echo "No cabal file found in local directory."
+            exit 1
+        )
+
+        open_package "$cabalfile"
+        ;;
+    *)
+        open_package "$1"
+        ;;
+esac
