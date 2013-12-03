@@ -96,11 +96,15 @@ case "$1" in
         exit 0
         ;;
     -l|--local)
-        html="dist/doc/html/*/index.html"
+        packagename=$(echo *.cabal | cut -d'.' -f1)
+        html="dist/doc/html/${packagename}/index.html"
         [[ -z $html ]] && (
             echo "No documentation found in dist/doc/html/"
             exit 1
         )
+
+        # attempt to open the file in the browser
+        xdg-open "$html"
         ;;
     "")
         cabalfile=$(ls ./*.cabal)
